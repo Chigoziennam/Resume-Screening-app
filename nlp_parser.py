@@ -11,6 +11,17 @@ from openai import OpenAI
 import json
 
 
+def _get_api_key() -> Optional[str]:
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if not key:
+        try:
+            import streamlit as st
+            key = st.secrets.get("OPENROUTER_API_KEY")
+        except Exception:
+            pass
+    return key
+
+
 def extract_email(text: str) -> Optional[str]:
     match = re.search(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", text)
     return match.group(0) if match else None
@@ -73,7 +84,7 @@ def extract_education_nlp(text: str) -> List[Dict]:
 
 
 def parse_with_llm(text: str) -> Optional[Dict]:
-    api_key = os.environ.get("OPENROUTER_API_KEY")
+    api_key = _get_api_key()
     if not api_key:
         return None
 
@@ -145,7 +156,7 @@ Resume text:
 
 
 def parse_job_description_llm(job_desc: str) -> Optional[Dict]:
-    api_key = os.environ.get("OPENROUTER_API_KEY")
+    api_key = _get_api_key()
     if not api_key:
         return None
 
