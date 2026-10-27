@@ -43,20 +43,59 @@ interface ParseResult {
   improvements: string[];
 }
 
+interface ScoreCategory {
+  score: number;
+  weight: number;
+  matched?: string[];
+  missing?: string[];
+  total?: number;
+  candidateYears?: number;
+  requiredYears?: number;
+  relevantRoles?: string[];
+  meetsRequirement?: boolean;
+  fieldMatch?: boolean;
+  candidateDegree?: string;
+  candidateField?: string;
+}
+
+interface ScoreBreakdown {
+  skillsRequired: ScoreCategory;
+  skillsPreferred: ScoreCategory;
+  experience: ScoreCategory;
+  education: ScoreCategory;
+  keywords: ScoreCategory;
+  overall: number;
+  grade: string;
+}
+
+interface JobRequirements {
+  title: string;
+  requiredSkills: string[];
+  preferredSkills: string[];
+  minExperienceYears: number;
+  requiredEducation: string;
+  requiredField: string[];
+  keywords: string[];
+}
+
 interface FileResult {
   fileName: string;
   result: ParseResult | null;
   error: string | null;
   loading: boolean;
+  matchScore: ScoreBreakdown | null;
+  jobReqs: JobRequirements | null;
 }
 
 export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
   const [results, setResults] = useState<FileResult[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [matching, setMatching] = useState(false);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [jobDescription, setJobDescription] = useState("");
 
   const handleFiles = useCallback((newFiles: FileList | File[]) => {
     const valid: File[] = [];
@@ -104,13 +143,15 @@ export default function Home() {
       const parseData = await parseRes.json();
       if (!parseRes.ok) throw new Error(parseData.error);
 
-      return { fileName: file.name, result: parseData.result, error: null, loading: false };
+      return { fileName: file.name, result: parseData.result, error: null, loading: false, matchScore: null, jobReqs: null };
     } catch (err: unknown) {
       return {
         fileName: file.name,
         result: null,
         error: err instanceof Error ? err.message : "Analysis failed",
         loading: false,
+        matchScore: null,
+        jobReqs: null,
       };
     }
   };
@@ -126,6 +167,8 @@ export default function Home() {
       result: null,
       error: null,
       loading: true,
+      matchScore: null,
+      jobReqs: null,
     }));
     setResults(initial);
 
@@ -139,6 +182,34 @@ export default function Home() {
     }
 
     setAnalyzing(false);
+  };
+
+  const matchAgainstJob = async () => {
+    if (!jobDescription.trim() || results.length === 0) return;
+    setMatching(true);
+
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (!r.result) continue;
+
+      try {
+        const res = await fetch("/api/match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resumeData: r.result, jobDescription }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setResults((prev) => {
+            const updated = [...prev];
+            updated[i] = { ...updated[i], matchScore: data.breakdown, jobReqs: data.jobRequirements };
+            return updated;
+          });
+        }
+      } catch {}
+    }
+
+    setMatching(false);
   };
 
   const current = results[activeTab];
@@ -257,6 +328,29 @@ export default function Home() {
             )}
           </button>
         </div>
+
+        {/* Job Description Input */}
+        {results.some((r) => r.result) && (
+          <div className="max-w-2xl mx-auto mb-10">
+            <Card>
+              <CardHeader icon={<TargetIcon />} title="Match Against Job Description" />
+              <p className="text-white/35 text-sm mb-3">Paste a job description below. The scoring engine will calculate a transparent match breakdown — no LLM scoring, just algorithms.</p>
+              <textarea
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="Paste the full job description here..."
+                className="w-full h-32 bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 text-white/80 text-sm placeholder:text-white/20 focus:outline-none focus:border-indigo-500/40 resize-none"
+              />
+              <button
+                onClick={matchAgainstJob}
+                disabled={!jobDescription.trim() || matching}
+                className="mt-3 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-[0_1px_15px_rgba(16,185,129,0.25)]"
+              >
+                {matching ? "Scoring..." : `Score ${results.filter((r) => r.result).length === 1 ? "Resume" : `${results.filter((r) => r.result).length} Resumes`}`}
+              </button>
+            </Card>
+          </div>
+        )}
 
         {error && (
           <div className="max-w-2xl mx-auto bg-red-500/[0.06] border border-red-500/20 rounded-xl p-4 mb-10 text-red-300/90 text-center text-sm">
@@ -450,6 +544,78 @@ export default function Home() {
                 </Card>
               )}
             </div>
+
+            {/* Scoring Breakdown */}
+            {current?.matchScore && (
+              <Card>
+                <CardHeader icon={<ChartIcon />} title="Job Match Breakdown" />
+                <div className="flex items-center gap-4 mb-6 p-4 rounded-xl bg-gradient-to-r from-indigo-500/[0.06] to-purple-500/[0.06] border border-indigo-500/15">
+                  <div className="text-4xl font-bold text-white">{current.matchScore.overall}%</div>
+                  <div>
+                    <p className={`text-lg font-semibold ${current.matchScore.overall >= 75 ? "text-emerald-400" : current.matchScore.overall >= 50 ? "text-amber-400" : "text-red-400"}`}>
+                      {current.matchScore.grade}
+                    </p>
+                    {current.jobReqs && <p className="text-white/35 text-sm">for {current.jobReqs.title}</p>}
+                  </div>
+                </div>
+                <p className="text-white/25 text-[11px] uppercase tracking-widest mb-3">Transparent Scoring Rubric</p>
+                <div className="space-y-4">
+                  <ScoreBar label="Required Skills" score={current.matchScore.skillsRequired.score} weight={current.matchScore.skillsRequired.weight} color="indigo">
+                    {current.matchScore.skillsRequired.matched && current.matchScore.skillsRequired.matched.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {current.matchScore.skillsRequired.matched.map((s) => (
+                          <span key={s} className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/10 text-emerald-300/80">&#10003; {s}</span>
+                        ))}
+                        {current.matchScore.skillsRequired.missing?.map((s) => (
+                          <span key={s} className="px-2 py-0.5 text-xs rounded-full bg-red-500/10 text-red-300/80">&#10007; {s}</span>
+                        ))}
+                      </div>
+                    )}
+                  </ScoreBar>
+                  <ScoreBar label="Preferred Skills" score={current.matchScore.skillsPreferred.score} weight={current.matchScore.skillsPreferred.weight} color="purple">
+                    {current.matchScore.skillsPreferred.matched && current.matchScore.skillsPreferred.matched.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {current.matchScore.skillsPreferred.matched.map((s) => (
+                          <span key={s} className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/10 text-emerald-300/80">&#10003; {s}</span>
+                        ))}
+                      </div>
+                    )}
+                  </ScoreBar>
+                  <ScoreBar label="Experience" score={current.matchScore.experience.score} weight={current.matchScore.experience.weight} color="amber">
+                    <p className="text-white/35 text-xs mt-1">
+                      {current.matchScore.experience.candidateYears} years (required: {current.matchScore.experience.requiredYears}+)
+                      {current.matchScore.experience.relevantRoles && current.matchScore.experience.relevantRoles.length > 0 && (
+                        <span> · Relevant: {current.matchScore.experience.relevantRoles.join(", ")}</span>
+                      )}
+                    </p>
+                  </ScoreBar>
+                  <ScoreBar label="Education" score={current.matchScore.education.score} weight={current.matchScore.education.weight} color="cyan">
+                    <p className="text-white/35 text-xs mt-1">
+                      {current.matchScore.education.candidateDegree || "Not detected"}
+                      {current.matchScore.education.candidateField && ` in ${current.matchScore.education.candidateField}`}
+                      {" · "}
+                      {current.matchScore.education.meetsRequirement ? "Meets requirement" : "Below requirement"}
+                      {current.matchScore.education.fieldMatch ? " · Field match" : ""}
+                    </p>
+                  </ScoreBar>
+                  <ScoreBar label="Keywords" score={current.matchScore.keywords.score} weight={current.matchScore.keywords.weight} color="emerald">
+                    {current.matchScore.keywords.matched && current.matchScore.keywords.matched.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {current.matchScore.keywords.matched.map((s) => (
+                          <span key={s} className="px-2 py-0.5 text-xs rounded-full bg-white/[0.06] text-white/50">{s}</span>
+                        ))}
+                      </div>
+                    )}
+                  </ScoreBar>
+                </div>
+                <div className="mt-4 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                  <p className="text-white/25 text-[10px] uppercase tracking-widest mb-1">How scoring works</p>
+                  <p className="text-white/35 text-xs leading-relaxed">
+                    The LLM extracts resume data and parses job requirements. Scores are calculated algorithmically: skill matching uses fuzzy comparison with alias mapping, experience compares estimated years, education checks degree level and field relevance. No AI is involved in scoring — only transparent, auditable rules.
+                  </p>
+                </div>
+              </Card>
+            )}
           </div>
         )}
 
@@ -521,3 +687,29 @@ function SkillsIcon() { return <svg className="w-4 h-4" fill="none" viewBox="0 0
 function RocketIcon() { return <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" /></svg>; }
 function StrengthIcon() { return <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" /></svg>; }
 function LightbulbIcon() { return <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg>; }
+function ChartIcon() { return <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>; }
+
+function ScoreBar({ label, score, weight, color, children }: { label: string; score: number; weight: number; color: string; children?: React.ReactNode }) {
+  const colors: Record<string, string> = {
+    indigo: "bg-indigo-500",
+    purple: "bg-purple-500",
+    amber: "bg-amber-500",
+    cyan: "bg-cyan-500",
+    emerald: "bg-emerald-500",
+  };
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1.5">
+        <span className="text-white/70 text-sm font-medium">{label}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-white/25 text-xs">{Math.round(weight * 100)}% weight</span>
+          <span className={`text-sm font-bold ${score >= 75 ? "text-emerald-400" : score >= 50 ? "text-amber-400" : "text-red-400"}`}>{score}%</span>
+        </div>
+      </div>
+      <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-700 ${colors[color] || "bg-indigo-500"}`} style={{ width: `${score}%` }} />
+      </div>
+      {children}
+    </div>
+  );
+}
