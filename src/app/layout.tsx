@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Resume Intelligence - AI Resume Parser",
-  description: "AI-powered resume parsing, skill extraction, job categorization, and career recommendations.",
+  title: "Resume Screening App - AI Resume Parser",
+  description: "AI-powered resume screening, skill extraction, job categorization, and career recommendations.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

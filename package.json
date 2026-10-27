@@ -9,11 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "@tailwindcss/postcss": "^4.3.3",
     "mammoth": "^1.13.0",
     "next": "16.4.3",
     "openai": "^7.45.1",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.1",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

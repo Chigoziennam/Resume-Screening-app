@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { getSupabase } from "@/lib/supabase";
 
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
+function getClient() {
+  return new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY,
+  });
+}
 
 function cleanText(text: string): string {
   return text
@@ -84,11 +87,11 @@ Return a JSON object with EXACTLY this structure (no markdown, no code fences, j
 Resume text:
 ${cleaned.slice(0, 8000)}`;
 
-    const completion = await openai.chat.completions.create({
-      model: "google/gemini-2.0-flash-001",
+    const completion = await getClient().chat.completions.create({
+      model: "openai/gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-      max_tokens: 3000,
+      temperature: 0.2,
+      max_tokens: 4000,
     });
 
     const content = completion.choices[0]?.message?.content || "";
@@ -102,6 +105,21 @@ ${cleaned.slice(0, 8000)}`;
         { error: "Failed to parse AI response", raw: content },
         { status: 500 }
       );
+    }
+
+    const db = getSupabase();
+    if (db) {
+      await db.from("screening_results").insert({
+        candidate_name: parsed.candidate?.name || "Unknown",
+        email: parsed.candidate?.email || null,
+        phone: parsed.candidate?.phone || null,
+        job_category: parsed.jobCategory || null,
+        skills: parsed.skills || {},
+        recommendations: parsed.recommendations || [],
+        strengths: parsed.strengths || [],
+        improvements: parsed.improvements || [],
+        full_result: parsed,
+      });
     }
 
     return NextResponse.json({ result: parsed });

@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     let text = "";
 
     if (name.endsWith(".pdf")) {
-      const pdfParse = (await import("pdf-parse")).default;
+      const pdfParse = (await import("pdf-parse")) as unknown as (buf: Buffer) => Promise<{ text: string }>;
       const data = await pdfParse(buffer);
       text = data.text;
     } else if (name.endsWith(".docx")) {
