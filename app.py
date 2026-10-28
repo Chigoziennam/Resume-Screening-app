@@ -19,74 +19,10 @@ from ml_classifier import get_classifier
 from scorer import score_resume
 
 st.set_page_config(
-    page_title="Resume Screening App",
+    page_title="Resume Parsing and Job Recommendation System",
     page_icon="📄",
     layout="wide",
 )
-
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-    .main-header { text-align: center; padding: 2rem 0 2.5rem; }
-    .main-header h1 {
-        font-family: 'Inter', sans-serif; font-size: 3.2rem; font-weight: 800;
-        background: linear-gradient(135deg, #818cf8 0%, #c084fc 50%, #818cf8 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem; letter-spacing: -1px;
-    }
-    .main-header p { color: #9ca3af; font-size: 1.05rem; font-family: 'Inter', sans-serif; }
-    .badge {
-        display: inline-block; padding: 6px 16px; border-radius: 50px;
-        background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
-        color: #a5b4fc; font-size: 0.75rem; letter-spacing: 2px; text-transform: uppercase;
-        margin-bottom: 1rem; font-family: 'Inter', sans-serif;
-    }
-    .skill-tag {
-        display: inline-block; padding: 5px 14px; margin: 3px;
-        border-radius: 20px; font-size: 0.82rem; font-family: 'Inter', sans-serif;
-        border: 1px solid transparent; transition: all 0.2s;
-    }
-    .tech-tag { background: rgba(99,102,241,0.12); color: #a5b4fc; border-color: rgba(99,102,241,0.15); }
-    .soft-tag { background: rgba(245,158,11,0.12); color: #fcd34d; border-color: rgba(245,158,11,0.15); }
-    .tool-tag { background: rgba(16,185,129,0.12); color: #6ee7b7; border-color: rgba(16,185,129,0.15); }
-    .match-tag {
-        display: inline-block; padding: 3px 12px; margin: 2px;
-        border-radius: 14px; font-size: 0.78rem; font-family: 'Inter', sans-serif;
-    }
-    .match-yes { background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.2); }
-    .match-no { background: rgba(239,68,68,0.12); color: #fca5a5; border: 1px solid rgba(239,68,68,0.2); }
-    .section-card {
-        background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;
-        backdrop-filter: blur(10px);
-    }
-    .grade-badge {
-        display: inline-block; padding: 8px 20px; border-radius: 12px;
-        font-size: 1.1rem; font-weight: 700; font-family: 'Inter', sans-serif;
-    }
-    .grade-excellent { background: rgba(16,185,129,0.15); color: #6ee7b7; }
-    .grade-good { background: rgba(245,158,11,0.15); color: #fcd34d; }
-    .grade-poor { background: rgba(239,68,68,0.15); color: #fca5a5; }
-    div[data-testid="stFileUploader"] {
-        border: 2px dashed rgba(99,102,241,0.3); border-radius: 16px; padding: 1.2rem;
-        background: rgba(99,102,241,0.03); transition: all 0.3s;
-    }
-    div[data-testid="stFileUploader"]:hover { border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.06); }
-    .stMetric { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 0.8rem; }
-    section[data-testid="stSidebar"] { background: #0d0d1a; border-right: 1px solid rgba(255,255,255,0.06); }
-    h2, h3 { font-family: 'Inter', sans-serif !important; }
-    .stButton>button[kind="primary"] {
-        background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
-        border: none !important; font-weight: 600 !important; letter-spacing: 0.5px;
-        border-radius: 12px !important; padding: 0.6rem 2rem !important;
-    }
-    .stButton>button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #818cf8, #a78bfa) !important;
-        box-shadow: 0 4px 20px rgba(99,102,241,0.3) !important;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 
 def extract_text_from_pdf(file) -> str:
@@ -115,51 +51,22 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def display_skills(skills: dict):
-    for category, items in skills.items():
-        if items:
-            label = {"technical": "Technical", "soft": "Soft Skills", "tools": "Tools & Platforms"}.get(category, category)
-            css_class = {"technical": "tech-tag", "soft": "soft-tag", "tools": "tool-tag"}.get(category, "tech-tag")
-            st.markdown(f"**{label}**")
-            tags = " ".join(f'<span class="skill-tag {css_class}">{s}</span>' for s in items)
-            st.markdown(tags, unsafe_allow_html=True)
-            st.write("")
-
-
-def display_score_bar(label: str, score: int, weight: float, color: str):
-    col1, col2, col3 = st.columns([3, 1, 1])
-    with col1:
-        st.markdown(f"**{label}**")
-    with col2:
-        st.caption(f"{round(weight*100)}% weight")
-    with col3:
-        if score >= 75:
-            st.markdown(f"<span style='color:#6ee7b7;font-weight:700'>{score}%</span>", unsafe_allow_html=True)
-        elif score >= 50:
-            st.markdown(f"<span style='color:#fcd34d;font-weight:700'>{score}%</span>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<span style='color:#fca5a5;font-weight:700'>{score}%</span>", unsafe_allow_html=True)
-    st.progress(score / 100)
-
-
 # ===== MAIN APP =====
-st.markdown("""
-<div class="main-header">
-    <span class="badge">● Hybrid AI Resume Screening</span>
-    <h1>Resume Intelligence</h1>
-    <p>Upload resumes for instant analysis — NLP extraction, ML classification, and transparent job matching</p>
-</div>
-""", unsafe_allow_html=True)
+st.title("📄 Resume Parsing, Job Categorization and Recommendation System")
+st.write("Upload a resume to extract candidate information, education, skills, work experience, job category and job recommendations.")
 
 uploaded_files = st.file_uploader(
-    "Upload Resume(s)",
+    "Upload Resume",
     type=["pdf", "docx"],
     accept_multiple_files=True,
-    help="Drop PDF or DOCX resumes here"
+    help="Drag and drop files here. Limit 200MB per file. PDF, DOCX"
 )
 
 if uploaded_files:
-    if st.button("🔍 Analyze Resumes", type="primary", use_container_width=True):
+    for uf in uploaded_files:
+        st.success(f"Resume uploaded successfully: {uf.name}")
+
+    if st.button("Analyze Resume", type="primary"):
         results = []
         progress = st.progress(0, text="Starting analysis...")
 
@@ -229,114 +136,112 @@ if "results" in st.session_state and st.session_state["results"]:
             data = res["data"]
             candidate = data.get("candidate", {})
             skills = data.get("skills", {})
-            total_skills = len(skills.get("technical", [])) + len(skills.get("soft", [])) + len(skills.get("tools", []))
 
-            # Metrics row
-            c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                st.metric("Skills Found", total_skills)
-            with c2:
-                st.metric("Experience", f"{len(data.get('experience', []))} roles")
-            with c3:
-                st.metric("Education", len(data.get("education", [])))
-            with c4:
-                ml = data.get("ml_classification", {})
-                st.metric("ML Confidence", f"{ml.get('confidence', 0)}%")
+            st.divider()
 
-            # Candidate Profile
-            st.subheader("👤 Candidate Profile")
+            # Candidate Information
+            st.header("👤 Candidate Information")
             col1, col2 = st.columns(2)
             with col1:
-                st.write(f"**Name:** {candidate.get('name', 'Not detected')}")
-                st.write(f"**Email:** {candidate.get('email') or 'Not detected'}")
-                st.write(f"**Phone:** {candidate.get('phone') or 'Not detected'}")
+                st.subheader("Email Address")
+                email_val = candidate.get("email") or "Not detected"
+                st.write(email_val)
             with col2:
-                st.write(f"**Location:** {candidate.get('location') or 'Not detected'}")
-                if candidate.get("linkedin"):
-                    st.write(f"**LinkedIn:** {candidate['linkedin']}")
-            if candidate.get("summary"):
-                st.info(candidate["summary"])
+                st.subheader("Phone Number")
+                phone_val = candidate.get("phone") or "Not detected"
+                st.write(phone_val)
 
-            # Job Category (ML + LLM)
-            st.subheader("🎯 Job Classification")
-            ml_data = data.get("ml_classification", {})
+            st.divider()
 
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"**ML Classification (TF-IDF + Classifiers):**")
-                st.success(f"**{ml_data.get('predicted_category', 'Unknown')}** ({ml_data.get('confidence', 0)}% confidence)")
-                if ml_data.get("model_results"):
-                    with st.expander("Individual Model Results"):
-                        for name, result in ml_data["model_results"].items():
-                            st.write(f"**{name}:** {result['category']} ({result['confidence']}%)")
-            with col2:
-                if data.get("jobCategory"):
-                    st.markdown(f"**LLM Classification (GPT-4o-mini):**")
-                    st.success(f"**{data['jobCategory']}**")
+            # Extracted Skills
+            st.header("⚡ Extracted Skills")
+            all_skills = (
+                skills.get("technical", []) +
+                skills.get("tools", []) +
+                skills.get("soft", [])
+            )
+            if all_skills:
+                for skill in all_skills:
+                    st.write(f"• {skill}")
+            else:
+                st.write("No skills detected")
 
-            # Education
+            st.divider()
+
+            # Education and Work Experience
+            st.header("🎓 Education and Work Experience")
             if data.get("education"):
-                st.subheader("🎓 Education")
                 for edu in data["education"]:
                     degree = edu.get("degree", "")
                     field = edu.get("field", "")
                     inst = edu.get("institution", "")
                     year = edu.get("year", "")
-                    st.write(f"**{degree}** in {field}")
+                    parts = [p for p in [degree, field] if p]
+                    st.write(f"• {' in '.join(parts) if parts else 'Education entry'}")
                     if inst:
-                        st.caption(f"{inst} {'· ' + year if year else ''}")
+                        st.write(f"  {inst} {year}")
 
-            # Experience
             if data.get("experience"):
-                st.subheader("💼 Work Experience")
                 for exp in data["experience"]:
-                    with st.container():
-                        col1, col2 = st.columns([3, 1])
-                        with col1:
-                            st.write(f"**{exp.get('title', '')}** at {exp.get('company', '')}")
-                        with col2:
-                            st.caption(exp.get("dates", ""))
-                        if exp.get("highlights"):
-                            for h in exp["highlights"]:
-                                st.write(f"  ▸ {h}")
+                    title = exp.get("title", "")
+                    company = exp.get("company", "")
+                    dates = exp.get("dates", "")
+                    st.write(f"• {title}" + (f" at {company}" if company else "") + (f" ({dates})" if dates else ""))
 
-            # Skills
-            if skills:
-                st.subheader("⚡ Skills")
-                display_skills(skills)
+            if not data.get("education") and not data.get("experience"):
+                st.write("No education or experience detected")
 
-            # Recommendations
+            st.divider()
+
+            # Predicted Job Category
+            st.header("🎯 Predicted Job Category")
+            ml_data = data.get("ml_classification", {})
+            predicted = ml_data.get("predicted_category", data.get("jobCategory", "Unknown"))
+            st.success(f"**{predicted.upper()}**")
+
+            if ml_data.get("model_results"):
+                with st.expander("View Individual Model Results"):
+                    for name, result in ml_data["model_results"].items():
+                        st.write(f"• **{name}:** {result['category']} ({result['confidence']}% confidence)")
+
+            st.divider()
+
+            # Recommended Jobs
+            st.header("💼 Recommended Jobs")
             if data.get("recommendations"):
-                st.subheader("🚀 Job Recommendations")
-                cols = st.columns(min(len(data["recommendations"]), 3))
-                for j, rec in enumerate(data["recommendations"]):
-                    with cols[j % len(cols)]:
-                        score_color = "🟢" if rec.get("matchScore", 0) >= 80 else "🟡" if rec.get("matchScore", 0) >= 60 else "🔴"
-                        st.markdown(f"**{rec.get('title', '')}** {score_color} {rec.get('matchScore', 0)}%")
-                        st.caption(rec.get("reason", ""))
+                for rec in data["recommendations"]:
+                    title = rec.get("title", "")
+                    reason = rec.get("reason", "")
+                    score = rec.get("matchScore", 0)
+                    st.write(f"• {title}" + (f" — {reason}" if reason else ""))
+            else:
+                st.write("Upload and analyze a resume to see job recommendations.")
+
+            st.divider()
 
             # Strengths & Improvements
-            col1, col2 = st.columns(2)
-            with col1:
-                if data.get("strengths"):
-                    st.subheader("✨ Key Strengths")
-                    for s in data["strengths"]:
-                        st.write(f"✓ {s}")
-            with col2:
-                if data.get("improvements"):
-                    st.subheader("💡 Suggestions")
-                    for s in data["improvements"]:
-                        st.write(f"→ {s}")
+            if data.get("strengths") or data.get("improvements"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    if data.get("strengths"):
+                        st.header("✅ Key Strengths")
+                        for s in data["strengths"]:
+                            st.write(f"• {s}")
+                with col2:
+                    if data.get("improvements"):
+                        st.header("💡 Suggestions")
+                        for s in data["improvements"]:
+                            st.write(f"• {s}")
+                st.divider()
 
     # ===== JOB MATCHING SECTION =====
-    st.divider()
-    st.subheader("📊 Match Against Job Description")
-    st.caption("Paste a job description below. The LLM parses requirements, then the algorithmic scoring engine calculates a transparent match — no AI in scoring.")
+    st.header("📊 Match Against Job Description")
+    st.write("Paste a job description below to score candidates against specific requirements.")
 
     job_desc = st.text_area("Job Description", height=150, placeholder="Paste the full job description here...")
 
-    if job_desc.strip() and st.button("🎯 Score Resumes Against Job", type="primary", use_container_width=True):
-        with st.spinner("Parsing job requirements with LLM..."):
+    if job_desc.strip() and st.button("Score Resumes Against Job", type="primary"):
+        with st.spinner("Parsing job requirements..."):
             job_reqs = parse_job_description_llm(job_desc)
 
         if not job_reqs:
@@ -345,15 +250,11 @@ if "results" in st.session_state and st.session_state["results"]:
             st.success(f"Job Requirements parsed: **{job_reqs.get('title', 'Unknown')}**")
 
             with st.expander("Parsed Job Requirements"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write("**Required Skills:**", ", ".join(job_reqs.get("requiredSkills", [])))
-                    st.write("**Preferred Skills:**", ", ".join(job_reqs.get("preferredSkills", [])))
-                    st.write("**Min Experience:**", f"{job_reqs.get('minExperienceYears', 0)} years")
-                with col2:
-                    st.write("**Education:**", job_reqs.get("requiredEducation", "Not specified"))
-                    st.write("**Fields:**", ", ".join(job_reqs.get("requiredField", [])) or "Any")
-                    st.write("**Keywords:**", ", ".join(job_reqs.get("keywords", [])))
+                st.write(f"• **Required Skills:** {', '.join(job_reqs.get('requiredSkills', []))}")
+                st.write(f"• **Preferred Skills:** {', '.join(job_reqs.get('preferredSkills', []))}")
+                st.write(f"• **Min Experience:** {job_reqs.get('minExperienceYears', 0)} years")
+                st.write(f"• **Education:** {job_reqs.get('requiredEducation', 'Not specified')}")
+                st.write(f"• **Keywords:** {', '.join(job_reqs.get('keywords', []))}")
 
             for res in results:
                 if "error" in res:
@@ -363,9 +264,8 @@ if "results" in st.session_state and st.session_state["results"]:
                 breakdown = score_resume(data, job_reqs)
                 res["match_score"] = breakdown
 
-                st.markdown(f"### {res['file']}")
+                st.subheader(res["file"])
 
-                # Overall score
                 overall = breakdown["overall"]
                 grade = breakdown["grade"]
                 if overall >= 75:
@@ -375,89 +275,60 @@ if "results" in st.session_state and st.session_state["results"]:
                 else:
                     st.error(f"**{overall}%** — {grade}")
 
-                # Category breakdowns
-                display_score_bar("Required Skills", breakdown["skills_required"]["score"], breakdown["skills_required"]["weight"], "#818cf8")
+                st.write(f"• **Required Skills:** {breakdown['skills_required']['score']}% ({breakdown['skills_required']['weight']*100:.0f}% weight)")
                 matched = breakdown["skills_required"].get("matched", [])
                 missing = breakdown["skills_required"].get("missing", [])
-                if matched or missing:
-                    tags = ""
-                    for s in matched:
-                        tags += f'<span class="match-tag match-yes">✓ {s}</span>'
-                    for s in missing:
-                        tags += f'<span class="match-tag match-no">✗ {s}</span>'
-                    st.markdown(tags, unsafe_allow_html=True)
+                if matched:
+                    st.write(f"  Matched: {', '.join(matched)}")
+                if missing:
+                    st.write(f"  Missing: {', '.join(missing)}")
 
-                display_score_bar("Preferred Skills", breakdown["skills_preferred"]["score"], breakdown["skills_preferred"]["weight"], "#a78bfa")
-                pref_matched = breakdown["skills_preferred"].get("matched", [])
-                if pref_matched:
-                    tags = " ".join(f'<span class="match-tag match-yes">✓ {s}</span>' for s in pref_matched)
-                    st.markdown(tags, unsafe_allow_html=True)
+                st.write(f"• **Preferred Skills:** {breakdown['skills_preferred']['score']}% ({breakdown['skills_preferred']['weight']*100:.0f}% weight)")
 
-                display_score_bar("Experience", breakdown["experience"]["score"], breakdown["experience"]["weight"], "#fbbf24")
-                st.caption(f"{breakdown['experience']['candidate_years']} years (required: {breakdown['experience']['required_years']}+)"
-                          + (f" · Relevant: {', '.join(breakdown['experience']['relevant_roles'])}" if breakdown['experience']['relevant_roles'] else ""))
+                st.write(f"• **Experience:** {breakdown['experience']['score']}% ({breakdown['experience']['weight']*100:.0f}% weight) — {breakdown['experience']['candidate_years']} years (required: {breakdown['experience']['required_years']}+)")
 
-                display_score_bar("Education", breakdown["education"]["score"], breakdown["education"]["weight"], "#22d3ee")
                 edu = breakdown["education"]
-                st.caption(f"{edu['candidate_degree'] or 'Not detected'}"
-                          + (f" in {edu['candidate_field']}" if edu['candidate_field'] else "")
-                          + f" · {'Meets requirement' if edu['meets_requirement'] else 'Below requirement'}"
-                          + (f" · Field match" if edu['field_match'] else ""))
+                st.write(f"• **Education:** {edu['score']}% ({edu['weight']*100:.0f}% weight) — {edu['candidate_degree'] or 'Not detected'}" +
+                         (f" in {edu['candidate_field']}" if edu['candidate_field'] else "") +
+                         f" ({'Meets requirement' if edu['meets_requirement'] else 'Below requirement'})")
 
-                display_score_bar("Keywords", breakdown["keywords"]["score"], breakdown["keywords"]["weight"], "#34d399")
-                kw_matched = breakdown["keywords"].get("matched", [])
-                if kw_matched:
-                    tags = " ".join(f'<span class="match-tag match-yes">{s}</span>' for s in kw_matched)
-                    st.markdown(tags, unsafe_allow_html=True)
+                st.write(f"• **Keywords:** {breakdown['keywords']['score']}% ({breakdown['keywords']['weight']*100:.0f}% weight)")
 
-                st.info("**How scoring works:** The LLM extracts resume data and parses job requirements. Scores are calculated algorithmically: skill matching uses fuzzy comparison with alias mapping, experience compares estimated years, education checks degree level and field relevance. No AI is involved in scoring — only transparent, auditable rules.")
                 st.divider()
 
-    # Ranking summary if multiple resumes scored
+    # Ranking summary
     if any("match_score" in r for r in results):
         scored = [(r["file"], r["match_score"]) for r in results if "match_score" in r]
         scored.sort(key=lambda x: x[1]["overall"], reverse=True)
 
-        st.subheader("🏆 Candidate Ranking")
+        st.header("🏆 Candidate Ranking")
         for rank, (fname, breakdown) in enumerate(scored, 1):
             overall = breakdown["overall"]
             grade = breakdown["grade"]
-            if overall >= 75:
-                st.write(f"**#{rank}** {fname} — **{overall}%** ({grade}) 🟢")
-            elif overall >= 50:
-                st.write(f"**#{rank}** {fname} — **{overall}%** ({grade}) 🟡")
-            else:
-                st.write(f"**#{rank}** {fname} — **{overall}%** ({grade}) 🔴")
+            st.write(f"**#{rank}** {fname} — **{overall}%** ({grade})")
 
 # Sidebar
 with st.sidebar:
-    st.markdown("### About")
-    st.markdown("""
-    **Resume Intelligence** is a hybrid resume screening system that combines:
+    st.header("About")
+    st.write("""
+    **Resume Parsing, Job Categorization and Recommendation System** combines:
 
-    - **NLP** text extraction and pattern matching
-    - **ML Classifiers** (KNN, LinearSVC, Random Forest) with TF-IDF for job categorization
-    - **LLM** (GPT-4o-mini) for semantic resume analysis
-    - **Algorithmic Scoring** engine for transparent job matching
-
-    The scoring rubric weights:
-    - Required Skills: 35%
-    - Experience: 25%
-    - Education: 15%
-    - Preferred Skills: 10%
-    - Keywords: 15%
+    • NLP text extraction and pattern matching
+    • ML Classifiers (KNN, LinearSVC, Random Forest) with TF-IDF for job categorization
+    • LLM (GPT-4o-mini) for semantic resume analysis
+    • Algorithmic Scoring engine for transparent job matching
     """)
 
-    st.markdown("---")
-    st.markdown("**ML Model Accuracy**")
+    st.divider()
+    st.subheader("ML Model Accuracy")
     try:
         classifier = get_classifier()
         accuracies = classifier.get_accuracy()
         for name, acc in accuracies.items():
-            st.write(f"{name}: {acc}%")
+            st.write(f"• {name}: {acc}%")
     except Exception:
         st.write("Train models first by analyzing a resume.")
 
-    st.markdown("---")
-    st.caption("Built with Python, Streamlit, scikit-learn & GPT-4o-mini")
-    st.caption("BSc Computer Science Project — University of Nigeria, Nsukka")
+    st.divider()
+    st.write("Built with Python, Streamlit, scikit-learn & GPT-4o-mini")
+    st.write("BSc Computer Science Project — University of Nigeria, Nsukka")
